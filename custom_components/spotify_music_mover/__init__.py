@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import aiohttp
+import homeassistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
+import homeassistant.core
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.config_entry_oauth2_flow import (
@@ -13,6 +15,7 @@ from homeassistant.helpers.config_entry_oauth2_flow import (
 )
 from spotifyaio import SpotifyClient
 
+from custom_components.spotify_music_mover.const import DOMAIN
 from custom_components.spotify_music_mover.coordinator import SpotifyCoordinator
 from custom_components.spotify_music_mover.model import SpotifyData
 
@@ -64,6 +67,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: SpotifyConfigEntry) -> b
         raise ConfigEntryAuthFailed
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    async def handle_move(call: homeassistant.core.ServiceCall) -> None:
+        device_id = call.data.get("device_id")
+        if TYPE_CHECKING:
+            assert isinstance(device_id, str)
+
+        await spotify.transfer_playback(device_id)
+
+    hass.services.register(DOMAIN, "move", handle_move)
+
     return True
 
 
