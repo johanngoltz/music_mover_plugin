@@ -1,32 +1,75 @@
-"""DataUpdateCoordinator for custom_components/spotify_music_mover."""
+"""Coordinator for Spotify."""
 
-from __future__ import annotations
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
-from typing import TYPE_CHECKING, Any
-
-from homeassistant.exceptions import ConfigEntryAuthFailed
+import homeassistant.util.dt as dt_util
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-
-from .api import (
-    IntegrationBlueprintApiClientAuthenticationError,
-    IntegrationBlueprintApiClientError,
+from spotifyaio import (
+    PlaybackState,
+    SpotifyClient,
+    SpotifyConnectionError,
+    UserProfile,
 )
 
+from .const import DOMAIN
+
 if TYPE_CHECKING:
-    from .data import IntegrationBlueprintConfigEntry
+    from . import SpotifyData
+
+_LOGGER = logging.getLogger(__name__)
 
 
-# https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
-class BlueprintDataUpdateCoordinator(DataUpdateCoordinator):
-    """Class to manage fetching data from the API."""
+type SpotifyConfigEntry = ConfigEntry[SpotifyData]
 
-    config_entry: IntegrationBlueprintConfigEntry
 
-    async def _async_update_data(self) -> Any:
-        """Update data via library."""
+@dataclass
+class SpotifyCoordinatorData:
+    """Class to hold Spotify data."""
+
+    position_updated_at: datetime | None
+    current_playback: PlaybackState | None
+
+
+class SpotifyCoordinator(DataUpdateCoordinator[SpotifyCoordinatorData]):
+    """Class to manage fetching Spotify data."""
+
+    current_user: UserProfile
+    config_entry: SpotifyConfigEntry
+
+    def __init__(self, hass: HomeAssistant, client: SpotifyClient) -> None:
+        """Initialize."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=30),
+        )
+        self.client = client
+
+    async def _async_setup(self) -> None:
+        """Set up the coordinator."""
         try:
-            return await self.config_entry.runtime_data.client.async_get_data()
-        except IntegrationBlueprintApiClientAuthenticationError as exception:
-            raise ConfigEntryAuthFailed(exception) from exception
-        except IntegrationBlueprintApiClientError as exception:
-            raise UpdateFailed(exception) from exception
+            self.current_user = await self.client.get_current_user()
+        except SpotifyConnectionError as err:
+            raise UpdateFailed("Error communicating with Spotify API") from err
+
+    async def _async_update_data(self) -> SpotifyCoordinatorData:
+        try:
+            current = await self.client.get_playback()
+        except SpotifyConnectionError as err:
+            raise UpdateFailed("Error communicating with Spotify API") from err
+        if not current:
+            return SpotifyCoordinatorData(
+                current_playback=None, position_updated_at=None
+            )
+        # Record the last updated time, because Spotify's timestamp property is unreliable
+        # and doesn't actually return the fetch time as is mentioned in the API description
+        position_updated_at = dt_util.utcnow()
+        return SpotifyCoordinatorData(
+            current_playback=current, position_updated_at=position_updated_at
+        )
