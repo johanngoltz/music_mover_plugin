@@ -1,0 +1,12 @@
+{
+  "domain": "spotify_music_mover",
+  "name": "Spotify Music Mover",
+  "codeowners": [
+    "@johanngoltz"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/johanngoltz/music_mover_plugin",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/johanngoltz/music_mover_plugin/issues",
+  "version": "0.1.0"
+}
