@@ -1,12 +1,14 @@
+"""Move music between Spotify devices."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 import aiohttp
 import homeassistant
+import homeassistant.core
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-import homeassistant.core
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.config_entry_oauth2_flow import (
@@ -32,6 +34,8 @@ SPOTIFY_SCOPES = [
     "user-modify-playback-state",
     # Needed in order to read available devices
     "user-read-playback-state",
+    # needed?
+    "user-read-private",
 ]
 
 type SpotifyConfigEntry = ConfigEntry[SpotifyData]
@@ -66,7 +70,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: SpotifyConfigEntry) -> b
     if not set(session.token["scope"].split(" ")).issuperset(SPOTIFY_SCOPES):
         raise ConfigEntryAuthFailed
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # commented out because it raises
+    # ModuleNotFoundError: No module named 'custom_components.spotify_music_mover.media_player'
+    # await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     async def handle_move(call: homeassistant.core.ServiceCall) -> None:
         device_id = call.data.get("device_id")
@@ -75,9 +81,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: SpotifyConfigEntry) -> b
 
         await spotify.transfer_playback(device_id)
 
-    hass.services.register(DOMAIN, "move", handle_move)
+    hass.services.async_register(DOMAIN, "move", handle_move)
 
     return True
+
+
+# device ids
+# pc d35070d526315e501c040356bb4cc215646a1e5b
+# srs 4bec8d212326bced75eac7b1347d4c86a1044979
+# mcp 963930c60334416990b82580d1745bc95d26271e
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -11,5 +11,11 @@
   "version": "0.1.0",
   "dependencies": [
     "application_credentials"
+  ],
+  "loggers": [
+    "spotifyaio"
+  ],
+  "requirements": [
+    "spotifyaio==0.8.11"
   ]
 }
