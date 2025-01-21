@@ -1,0 +1,6 @@
+move:
+  # todo try targeting a device, https://developers.home-assistant.io/docs/dev_101_services
+  fields:
+    device_id:
+      required: true
+      example: d35070d526315e501c040356bb4cc215646a1e5b
